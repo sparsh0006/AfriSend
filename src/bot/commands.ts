@@ -11,6 +11,7 @@ import {
   sendRemittance, claimRemittance, cancelRemittance,
 } from "../chain/index.js";
 import { encryptKey, decryptKey } from "../crypto.js";
+import { convert, getRates, CURRENCIES } from "../rates.js";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -37,6 +38,10 @@ export function createBot() {
     const name     = ctx.from?.first_name ?? "there";
 
     if (existing) {
+      // Refresh username in case it changed or was null at registration
+      if (tgUsername(ctx) && existing.username !== tgUsername(ctx)) {
+        await updateUsername(tgId(ctx), tgUsername(ctx)!);
+      }
       return ctx.reply(
         `Welcome back, ${name}! 👋\n\n` +
         `💼 Wallet: \`${existing.address}\`\n\n` +
@@ -65,8 +70,7 @@ export function createBot() {
       `Welcome, ${name}! 🎉 Your wallet is ready.\n\n` +
       `💼 Address: \`${address}\`\n\n` +
       `Fund your wallet with USDT on Injective EVM, then use /send to transfer.\n\n` +
-      // `⚠️ This is a custodial wallet — the bot manages your keys securely on your behalf.`,
-      `Enjoy Zero remittance using your wallet!`,
+      `⚠️ This is a custodial wallet — the bot manages your keys securely on your behalf.`,
       { parse_mode: "Markdown" }
     );
   });
@@ -311,10 +315,81 @@ export function createBot() {
       `/cancel <id> — cancel outgoing transfer\n\n` +
       `📋 *History*\n` +
       `/history — last 10 transactions\n\n` +
+      `💱 *Rates*\n` +
+      `/rates — live rates for all currencies\n` +
+      `/convert amount currency — e.g. /convert 10 NGN\n\n` +
       `ℹ️ *Other*\n` +
       `/help — show this message`,
       { parse_mode: "Markdown" }
     );
+  });
+
+  // /convert <amount> <currency>  e.g. /convert 10 NGN
+  bot.command("convert", async (ctx) => {
+    const parts    = ctx.message.text.trim().split(/\s+/);
+    const amount   = Number(parts[1]);
+    const currency = parts[2]?.toLowerCase();
+
+    if (!amount || isNaN(amount) || amount <= 0) {
+      return ctx.reply(
+        "Usage: /convert <amount> <currency>\n\n" +
+        "Examples:\n" +
+        "/convert 10 NGN\n" +
+        "/convert 50 KES\n" +
+        "/convert 1 GHS\n\n" +
+        "Use /rates to see all supported currencies."
+      );
+    }
+
+    if (!currency || !CURRENCIES[currency]) {
+      return ctx.reply(
+        `Currency not supported. Use /rates to see all supported currencies.`
+      );
+    }
+
+    try {
+      const { result, rate } = await convert(amount, currency);
+      const { name, flag }   = CURRENCIES[currency];
+      const formatted        = result.toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+
+      await ctx.reply(
+        `${flag} *Currency Conversion*\n\n` +
+        `*${amount} USDT* = *${formatted} ${currency.toUpperCase()}*\n\n` +
+        `1 USDT = ${rate.toLocaleString()} ${currency.toUpperCase()}\n` +
+        `Currency: ${name}\n\n` +
+        `_Rates powered by CoinGecko · Updated every 5 min_`,
+        { parse_mode: "Markdown" }
+      );
+    } catch (err: any) {
+      await ctx.reply(`Could not fetch rate: ${err?.message ?? "Please try again."}`);
+    }
+  });
+
+  // /rates — show all supported currencies with live rates
+  bot.command("rates", async (ctx) => {
+    try {
+      await ctx.reply("Fetching live rates... ⏳");
+      const rates = await getRates();
+
+      const lines = Object.entries(CURRENCIES).map(([code, { name, flag }]) => {
+        const rate = rates[code];
+        const formatted = rate
+          ? rate.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+          : "N/A";
+        return `${flag} ${name}\n    1 USDT = ${formatted} ${code.toUpperCase()}`;
+      });
+
+      await ctx.reply(
+        `💱 *Live Rates — 1 USDT equals:*\n\n${lines.join("\n\n")}\n\n` +
+        `_Powered by CoinGecko · Use /convert to calculate_`,
+        { parse_mode: "Markdown" }
+      );
+    } catch {
+      await ctx.reply("Could not fetch rates right now. Please try again.");
+    }
   });
 
   // Catch-all
@@ -331,8 +406,10 @@ export function createBot() {
     { command: "pending", description: "Transfers waiting to claim" },
     { command: "claim",   description: "Claim incoming USDT — usage: /claim <id>" },
     { command: "cancel",  description: "Cancel outgoing transfer — usage: /cancel <id>" },
-    { command: "history", description: "Last 10 transactions" },
-    { command: "help",    description: "Show all available commands" },
+    { command: "history",  description: "Last 10 transactions" },
+    { command: "convert",  description: "Convert USDT to local currency — /convert 10 NGN" },
+    { command: "rates",    description: "Live rates for all supported currencies" },
+    { command: "help",     description: "Show all available commands" },
   ]);
 
   return bot;
