@@ -65,7 +65,8 @@ export function createBot() {
       `Welcome, ${name}! 🎉 Your wallet is ready.\n\n` +
       `💼 Address: \`${address}\`\n\n` +
       `Fund your wallet with USDT on Injective EVM, then use /send to transfer.\n\n` +
-      `⚠️ This is a custodial wallet — the bot manages your keys securely on your behalf.`,
+      // `⚠️ This is a custodial wallet — the bot manages your keys securely on your behalf.`,
+      `Enjoy Zero remittance using your wallet!`,
       { parse_mode: "Markdown" }
     );
   });
