@@ -1,0 +1,25 @@
+{
+  "name": "inj-remit-bot",
+  "version": "1.0.0",
+  "description": "Custodial P2P USDT remittance Telegram bot on Injective EVM",
+  "type": "module",
+  "scripts": {
+    "dev":       "tsx watch src/index.ts",
+    "build":     "tsc",
+    "start":     "node dist/index.js",
+    "db:push":   "prisma db push",
+    "db:studio": "prisma studio"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.14.0",
+    "dotenv":         "^16.4.5",
+    "ethers":         "^6.13.0",
+    "telegraf":       "^4.16.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "prisma":      "^5.14.0",
+    "tsx":         "^4.15.7",
+    "typescript":  "^5.4.5"
+  }
+}

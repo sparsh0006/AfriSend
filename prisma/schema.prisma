@@ -1,0 +1,33 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            Int        @id @default(autoincrement())
+  telegramId    String     @unique
+  username      String?
+  address       String     @unique
+  encryptedKey  String
+  createdAt     DateTime   @default(now())
+  sent          Transfer[] @relation("Sender")
+  received      Transfer[] @relation("Recipient")
+}
+
+model Transfer {
+  id          Int      @id @default(autoincrement())
+  onChainId   Int?
+  txHash      String?
+  senderId    Int
+  recipientId Int
+  amount      String
+  status      String   @default("PENDING")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  sender      User     @relation("Sender",    fields: [senderId],    references: [id])
+  recipient   User     @relation("Recipient", fields: [recipientId], references: [id])
+}
